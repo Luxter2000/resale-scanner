@@ -50,7 +50,9 @@
 
   <label for="barcode">Barcode / ISBN</label>
   <input id="barcode" placeholder="Or type barcode manually">
-
+  
+  <button onclick="lookupBook()">Identify book</button>
+  
   <button onclick="copyBarcode()">Copy barcode</button>
   <div id="result" role="status">Ready to scan.</div>
 
@@ -107,6 +109,48 @@
           '. Check browser camera permissions.');
       }
     }
+
+async function lookupBook() {
+  const barcode = document.getElementById('barcode').value.trim();
+
+  if (!barcode) {
+    show('Scan a barcode first.');
+    return;
+  }
+
+  show('Searching Google Books…');
+
+  try {
+    const url =
+      'https://www.googleapis.com/books/v1/volumes?q=isbn:' +
+      encodeURIComponent(barcode);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Google Books request failed.');
+    }
+
+    const data = await response.json();
+
+    if (!data.items || data.items.length === 0) {
+      show('No book found. You can enter the details manually.');
+      return;
+    }
+
+    const book = data.items[0].volumeInfo || {};
+
+    show(
+      'Title: ' + (book.title || 'Unknown') +
+      '\nAuthor: ' + ((book.authors || []).join(', ') || 'Unknown') +
+      '\nPublisher: ' + (book.publisher || 'Unknown') +
+      '\nPublished: ' + (book.publishedDate || 'Unknown')
+    );
+
+  } catch (error) {
+    show('Lookup failed: ' + error.message);
+  }
+}
 
     async function copyBarcode() {
       const code = document.getElementById('barcode').value.trim();
