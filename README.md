@@ -1,0 +1,2 @@
+# resale-scanner
+barcode-scanner
