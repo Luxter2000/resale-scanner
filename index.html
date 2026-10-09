@@ -1,0 +1,128 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resale Scanner</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 24px 18px;
+      background: #f5f5f5;
+      color: #222;
+    }
+    h1 { font-size: 26px; }
+    button, input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 14px;
+      margin: 8px 0;
+      font-size: 17px;
+      border-radius: 9px;
+    }
+    button {
+      border: 0;
+      background: #26372c;
+      color: white;
+      font-weight: bold;
+    }
+    input { border: 1px solid #bbb; background: white; }
+    #reader { margin-top: 16px; }
+    #result {
+      margin-top: 18px;
+      padding: 14px;
+      background: white;
+      border-radius: 9px;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+<body>
+  <h1>Resale Scanner</h1>
+  <p>Scan a book ISBN or product barcode using your camera.</p>
+
+  <button id="scanButton" onclick="startScan()">Start scanning</button>
+  <div id="reader"></div>
+
+  <label for="barcode">Barcode / ISBN</label>
+  <input id="barcode" placeholder="Or type barcode manually">
+
+  <button onclick="copyBarcode()">Copy barcode</button>
+  <div id="result" role="status">Ready to scan.</div>
+
+  <script>
+    let scanner;
+    let running = false;
+
+    function show(message) {
+      document.getElementById('result').textContent = message;
+    }
+
+    async function startScan() {
+      if (typeof Html5Qrcode === 'undefined') {
+        show('Scanner library did not load. Check your internet connection.');
+        return;
+      }
+
+      try {
+        if (!scanner) scanner = new Html5Qrcode('reader');
+
+        if (running) return;
+
+        running = true;
+        show('Requesting camera access…');
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: { width: 280, height: 130 },
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+              Html5QrcodeSupportedFormats.UPC_A,
+              Html5QrcodeSupportedFormats.UPC_E,
+              Html5QrcodeSupportedFormats.CODE_128
+            ]
+          },
+          async decodedText => {
+            document.getElementById('barcode').value = decodedText;
+            show('Barcode scanned: ' + decodedText);
+            if (running) {
+              running = false;
+              await scanner.stop();
+            }
+          },
+          () => {}
+        );
+
+        show('Camera active. Hold a barcode inside the frame.');
+      } catch (error) {
+        running = false;
+        show('Camera error: ' + (error.message || error) +
+          '. Check browser camera permissions.');
+      }
+    }
+
+    async function copyBarcode() {
+      const code = document.getElementById('barcode').value.trim();
+
+      if (!code) {
+        show('Scan or enter a barcode first.');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(code);
+        show('Copied barcode: ' + code);
+      } catch (error) {
+        show('Barcode: ' + code + '. Select the field to copy it manually.');
+      }
+    }
+  </script>
+</body>
+</html>
