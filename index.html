@@ -110,52 +110,65 @@
       }
     }
 
+
 async function lookupBook() {
   const barcode = document.getElementById('barcode').value.trim();
 
   if (!barcode) {
-    show('Scan a barcode first.');
+    show('Scan or enter an ISBN first.');
     return;
   }
 
-  show('Searching Google Books…');
+  show('Searching Open Library…');
 
   try {
     const url =
-      'https://www.googleapis.com/books/v1/volumes?q=isbn:' +
-      encodeURIComponent(barcode);
+      'https://openlibrary.org/search.json?isbn=' +
+      encodeURIComponent(barcode) +
+      '&fields=title,author_name,publisher,first_publish_year,cover_i,isbn&limit=1';
 
     const response = await fetch(url);
 
-if (!response.ok) {
-  const details = await response.text();
-  throw new Error(
-    'Google Books returned HTTP ' +
-    response.status + ': ' +
-    details.slice(0, 250)
-  );
-}
+    if (!response.ok) {
+      throw new Error('Catalogue returned HTTP ' + response.status);
+    }
 
     const data = await response.json();
 
-    if (!data.items || data.items.length === 0) {
-      show('No book found. You can enter the details manually.');
+    if (!data.docs || data.docs.length === 0) {
+      show('No match found. Please enter the details manually.');
       return;
     }
 
-    const book = data.items[0].volumeInfo || {};
+    const book = data.docs[0];
+
+    const details = {
+      title: book.title || 'Unknown title',
+      author: (book.author_name || []).join(', ') || 'Unknown author',
+      publisher: (book.publisher || []).join(', ') || 'Unknown publisher',
+      published: book.first_publish_year || 'Unknown',
+      cover: book.cover_i
+        ? 'https://covers.openlibrary.org/b/id/' +
+          book.cover_i + '-M.jpg'
+        : ''
+    };
 
     show(
-      'Title: ' + (book.title || 'Unknown') +
-      '\nAuthor: ' + ((book.authors || []).join(', ') || 'Unknown') +
-      '\nPublisher: ' + (book.publisher || 'Unknown') +
-      '\nPublished: ' + (book.publishedDate || 'Unknown')
+      'Title: ' + details.title +
+      '\nAuthor: ' + details.author +
+      '\nPublisher: ' + details.publisher +
+      '\nPublished: ' + details.published +
+      '\n\nCheck these details before saving.'
     );
 
   } catch (error) {
-    show('Lookup failed: ' + error.message);
+    show(
+      'Lookup failed: ' + error.message +
+      '. You can still enter the details manually.'
+    );
   }
 }
+
 
     async function copyBarcode() {
       const code = document.getElementById('barcode').value.trim();
