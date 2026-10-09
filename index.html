@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,185 +5,281 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Resale Scanner</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleAuth()"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 480px;
-      margin: 0 auto;
-      padding: 24px 18px;
-      background: #f5f5f5;
-      color: #222;
-    }
-    h1 { font-size: 26px; }
-    button, input {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 14px;
-      margin: 8px 0;
-      font-size: 17px;
-      border-radius: 9px;
-    }
-    button {
-      border: 0;
-      background: #26372c;
-      color: white;
-      font-weight: bold;
-    }
-    input { border: 1px solid #bbb; background: white; }
-    #reader { margin-top: 16px; }
-    #result {
-      margin-top: 18px;
-      padding: 14px;
-      background: white;
-      border-radius: 9px;
-      overflow-wrap: anywhere;
-    }
+    body { font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 20px 16px 40px; background: #f5f5f5; color: #222; }
+    h1 { font-size: 26px; margin-bottom: 6px; }
+    h2 { font-size: 19px; margin: 24px 0 8px; }
+    p { line-height: 1.4; }
+    button, input, select, textarea { box-sizing: border-box; width: 100%; padding: 13px; margin: 6px 0; font-size: 16px; border-radius: 9px; }
+    button { border: 0; background: #26372c; color: white; font-weight: bold; cursor: pointer; }
+    button.secondary { background: #56645a; }
+    input, select, textarea { border: 1px solid #bbb; background: white; color: #222; }
+    textarea { min-height: 76px; resize: vertical; }
+    label { display: block; font-size: 14px; font-weight: bold; margin-top: 8px; }
+    #reader { margin-top: 12px; }
+    #result { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 16px; padding: 13px; background: white; border-radius: 9px; border: 1px solid #ddd; }
+    .hint { color: #555; font-size: 13px; }
+    .section { background: #fff; padding: 14px; border-radius: 12px; margin-top: 16px; border: 1px solid #e0e0e0; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 380px) { .row { grid-template-columns: 1fr; gap: 0; } }
   </style>
 </head>
 <body>
   <h1>Resale Scanner</h1>
-  <p>Scan a book ISBN or product barcode using your camera.</p>
+  <p>Scan a book ISBN or product barcode, identify books, and save purchases to your private Google Sheet.</p>
 
-  <button id="scanButton" onclick="startScan()">Start scanning</button>
-  <div id="reader"></div>
+  <div class="section">
+    <h2>1. Scan or identify</h2>
+    <button id="scanButton" onclick="startScan()">Start scanning</button>
+    <div id="reader"></div>
+    <label for="barcode">Barcode / ISBN</label>
+    <input id="barcode" inputmode="numeric" placeholder="Scan or type barcode">
+    <button class="secondary" onclick="lookupBook()">Identify book</button>
+    <button class="secondary" onclick="copyBarcode()">Copy barcode</button>
+  </div>
 
-  <label for="barcode">Barcode / ISBN</label>
-  <input id="barcode" placeholder="Or type barcode manually">
-  
-  <button onclick="lookupBook()">Identify book</button>
-  
-  <button onclick="copyBarcode()">Copy barcode</button>
-  <div id="result" role="status">Ready to scan.</div>
+  <div class="section">
+    <h2>2. Purchase details</h2>
+    <label for="title">Item title *</label>
+    <input id="title" placeholder="Book title or item name" required>
+    <div class="row">
+      <div>
+        <label for="category">Category</label>
+        <select id="category">
+          <option value="">Choose category</option>
+          <option>Books</option><option>Toys</option><option>Clothing</option>
+          <option>Electronics</option><option>Smart Home</option><option>Homewares</option>
+          <option>Collectibles</option><option>Other</option>
+        </select>
+      </div>
+      <div>
+        <label for="brand">Brand</label>
+        <input id="brand" placeholder="Brand / publisher">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="price">Purchase price (AUD) *</label>
+        <input id="price" type="number" min="0" step="0.01" placeholder="0.00" required>
+      </div>
+      <div>
+        <label for="source">Source</label>
+        <input id="source" placeholder="Op shop, garage sale…">
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="condition">Condition</label>
+        <select id="condition">
+          <option value="">Choose condition</option><option>New</option><option>Like new</option>
+          <option>Very good</option><option>Good</option><option>Acceptable</option><option>For parts / repair</option>
+        </select>
+      </div>
+      <div>
+        <label for="acquisitionType">Acquisition type</label>
+        <select id="acquisitionType"><option>Opportunistic</option><option>Targeted</option></select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="targetId">Target ID (optional)</label>
+        <input id="targetId" placeholder="e.g. T-001">
+      </div>
+      <div>
+        <label for="listPrice">Target list price (optional)</label>
+        <input id="listPrice" type="number" min="0" step="0.01" placeholder="0.00">
+      </div>
+    </div>
+    <label for="author">Author (optional)</label>
+    <input id="author" placeholder="Useful for books">
+    <label for="notes">Notes</label>
+    <textarea id="notes" placeholder="Details, defects, included accessories…"></textarea>
+    <button onclick="savePurchase()">Save purchase to Google Sheets</button>
+    <p class="hint">Saving requires you to authorise this page with your Google account. Your access token is kept in memory only and is not saved in the page or spreadsheet.</p>
+  </div>
 
-  <script>
-    let scanner;
-    let running = false;
+  <div id="result" role="status" aria-live="polite">Ready to scan. Google connection will be requested when you save.</div>
 
-    function show(message) {
-      document.getElementById('result').textContent = message;
-    }
+<script>
+  // Public configuration: client ID is not a password. Never add a client secret here.
+  const GOOGLE_CLIENT_ID = '80199849943-7uhri9tvou1gse1nsa4mt6dcftqfre7h.apps.googleusercontent.com';
+  const SPREADSHEET_ID = '1A6t1YCi97b-P_aEp0Fr0MD2ssSUceQeR-AoKOWtaavw';
+  const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
+  const INVENTORY_RANGE = "'Inventory'!A:Q";
+  let scanner;
+  let running = false;
+  let tokenClient = null;
+  let accessToken = null;
+  let tokenExpiresAt = 0;
+  let pendingSave = false;
 
-    async function startScan() {
-      if (typeof Html5Qrcode === 'undefined') {
-        show('Scanner library did not load. Check your internet connection.');
-        return;
+  function show(message) { document.getElementById('result').textContent = message; }
+
+  function initGoogleAuth() {
+    if (!window.google || !google.accounts || !google.accounts.oauth2) return;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: SHEETS_SCOPE,
+      callback: async (response) => {
+        if (response.error || !response.access_token) {
+          pendingSave = false;
+          show('Google authorisation was not completed: ' + (response.error_description || response.error || 'No access token returned.') + '\nPlease try saving again.');
+          return;
+        }
+        accessToken = response.access_token;
+        tokenExpiresAt = Date.now() + (Number(response.expires_in || 3600) - 60) * 1000;
+        if (pendingSave) {
+          pendingSave = false;
+          await writePurchase();
+        } else {
+          show('Google Sheets connected for this page session.');
+        }
+      },
+      error_callback: (error) => {
+        pendingSave = false;
+        show('Google sign-in window could not be opened. Please allow pop-ups and try again. ' + (error && error.message ? error.message : ''));
       }
-
-      try {
-        if (!scanner) scanner = new Html5Qrcode('reader');
-
-        if (running) return;
-
-        running = true;
-        show('Requesting camera access…');
-
-        await scanner.start(
-          { facingMode: 'environment' },
-          {
-            fps: 10,
-            qrbox: { width: 280, height: 130 },
-            formatsToSupport: [
-              Html5QrcodeSupportedFormats.EAN_13,
-              Html5QrcodeSupportedFormats.EAN_8,
-              Html5QrcodeSupportedFormats.UPC_A,
-              Html5QrcodeSupportedFormats.UPC_E,
-              Html5QrcodeSupportedFormats.CODE_128
-            ]
-          },
-          async decodedText => {
-            document.getElementById('barcode').value = decodedText;
-            show('Barcode scanned: ' + decodedText);
-            if (running) {
-              running = false;
-              await scanner.stop();
-            }
-          },
-          () => {}
-        );
-
-        show('Camera active. Hold a barcode inside the frame.');
-      } catch (error) {
-        running = false;
-        show('Camera error: ' + (error.message || error) +
-          '. Check browser camera permissions.');
-      }
-    }
-
-
-async function lookupBook() {
-  const barcode = document.getElementById('barcode').value.trim();
-
-  if (!barcode) {
-    show('Scan or enter an ISBN first.');
-    return;
+    });
   }
 
-  show('Searching Open Library…');
-
-  try {
-    const url =
-      'https://openlibrary.org/search.json?isbn=' +
-      encodeURIComponent(barcode) +
-      '&fields=title,author_name,publisher,first_publish_year,cover_i,isbn&limit=1';
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error('Catalogue returned HTTP ' + response.status);
-    }
-
-    const data = await response.json();
-
-    if (!data.docs || data.docs.length === 0) {
-      show('No match found. Please enter the details manually.');
+  function requestGoogleAccess(forSave) {
+    if (!tokenClient) {
+      show('Google authorisation is still loading. Wait a moment and try again.');
       return;
     }
-
-    const book = data.docs[0];
-
-    const details = {
-      title: book.title || 'Unknown title',
-      author: (book.author_name || []).join(', ') || 'Unknown author',
-      publisher: (book.publisher || []).join(', ') || 'Unknown publisher',
-      published: book.first_publish_year || 'Unknown',
-      cover: book.cover_i
-        ? 'https://covers.openlibrary.org/b/id/' +
-          book.cover_i + '-M.jpg'
-        : ''
-    };
-
-    show(
-      'Title: ' + details.title +
-      '\nAuthor: ' + details.author +
-      '\nPublisher: ' + details.publisher +
-      '\nPublished: ' + details.published +
-      '\n\nCheck these details before saving.'
-    );
-
-  } catch (error) {
-    show(
-      'Lookup failed: ' + error.message +
-      '. You can still enter the details manually.'
-    );
+    pendingSave = Boolean(forSave);
+    show('Opening Google authorisation…');
+    tokenClient.requestAccessToken();
   }
-}
 
+  async function startScan() {
+    if (typeof Html5Qrcode === 'undefined') { show('Scanner library did not load. Check your internet connection.'); return; }
+    try {
+      if (!scanner) scanner = new Html5Qrcode('reader');
+      if (running) return;
+      running = true;
+      show('Requesting camera access…');
+      await scanner.start({ facingMode: 'environment' }, {
+        fps: 10, qrbox: { width: 280, height: 130 },
+        formatsToSupport: [Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A, Html5QrcodeSupportedFormats.UPC_E, Html5QrcodeSupportedFormats.CODE_128]
+      }, async decodedText => {
+        document.getElementById('barcode').value = decodedText;
+        running = false;
+        try { await scanner.stop(); } catch (_) {}
+        show('Barcode scanned: ' + decodedText + '\nYou can identify the book or enter purchase details below.');
+      }, () => {});
+      show('Camera active. Hold a barcode inside the frame.');
+    } catch (error) {
+      running = false;
+      show('Camera error: ' + (error.message || error) + '. Check browser camera permissions. You can enter the barcode manually.');
+    }
+  }
 
-    async function copyBarcode() {
-      const code = document.getElementById('barcode').value.trim();
+  async function lookupBook() {
+    const barcode = document.getElementById('barcode').value.trim();
+    if (!barcode) { show('Scan or enter an ISBN first.'); return; }
+    show('Searching Open Library…');
+    try {
+      const url = 'https://openlibrary.org/search.json?isbn=' + encodeURIComponent(barcode) + '&fields=title,author_name,publisher,first_publish_year,cover_i,isbn&limit=1';
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Catalogue returned HTTP ' + response.status);
+      const data = await response.json();
+      if (!data.docs || data.docs.length === 0) { show('No match found. Please enter the details manually.'); return; }
+      const book = data.docs[0];
+      document.getElementById('title').value = book.title || '';
+      document.getElementById('author').value = (book.author_name || []).join(', ');
+      if (!document.getElementById('brand').value) document.getElementById('brand').value = (book.publisher || []).join(', ');
+      show('Book found. Details have been filled into the purchase form. Please check them before saving.\n\nTitle: ' + (book.title || 'Unknown title') + '\nAuthor: ' + ((book.author_name || []).join(', ') || 'Unknown author') + '\nPublisher: ' + ((book.publisher || []).join(', ') || 'Unknown publisher') + '\nPublished: ' + (book.first_publish_year || 'Unknown'));
+    } catch (error) {
+      show('Lookup failed: ' + error.message + '. You can still enter the details manually.');
+    }
+  }
 
-      if (!code) {
-        show('Scan or enter a barcode first.');
-        return;
-      }
+  async function copyBarcode() {
+    const code = document.getElementById('barcode').value.trim();
+    if (!code) { show('Scan or enter a barcode first.'); return; }
+    try { await navigator.clipboard.writeText(code); show('Copied barcode: ' + code); }
+    catch (_) { show('Barcode: ' + code + '. Select the field to copy it manually.'); }
+  }
 
-      try {
-        await navigator.clipboard.writeText(code);
-        show('Copied barcode: ' + code);
-      } catch (error) {
-        show('Barcode: ' + code + '. Select the field to copy it manually.');
+  function localDateString() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  async function savePurchase() {
+    const title = document.getElementById('title').value.trim();
+    const priceText = document.getElementById('price').value.trim();
+    if (!title) { show('Please enter an item title.'); document.getElementById('title').focus(); return; }
+    if (priceText === '' || !Number.isFinite(Number(priceText)) || Number(priceText) < 0) {
+      show('Please enter a valid purchase price.'); document.getElementById('price').focus(); return;
+    }
+    if (!accessToken || Date.now() >= tokenExpiresAt) {
+      requestGoogleAccess(true);
+      return;
+    }
+    await writePurchase();
+  }
+
+  async function writePurchase() {
+    const title = document.getElementById('title').value.trim();
+    const barcode = document.getElementById('barcode').value.trim();
+    const price = Number(document.getElementById('price').value);
+    const listPriceText = document.getElementById('listPrice').value.trim();
+    const notes = [document.getElementById('condition').value, document.getElementById('author').value.trim(), document.getElementById('notes').value.trim()].filter(Boolean).join(' | ');
+    const itemText = title + (barcode ? ' | ' + barcode : '');
+    show('Checking the next Item ID…');
+    try {
+      const headers = { 'Authorization': 'Bearer ' + accessToken };
+      const readUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(SPREADSHEET_ID) + '/values/' + encodeURIComponent("'Inventory'!A2:A");
+      const readResponse = await fetch(readUrl, { headers });
+      const readData = await readResponse.json();
+      if (!readResponse.ok) throw new Error(readData.error && readData.error.message ? readData.error.message : 'Could not read Inventory IDs (HTTP ' + readResponse.status + ').');
+      const ids = (readData.values || []).flat();
+      let maxId = 0;
+      ids.forEach(value => { const match = String(value).match(/^I-(\d+)$/); if (match) maxId = Math.max(maxId, Number(match[1])); });
+      const itemId = 'I-' + String(maxId + 1).padStart(4, '0');
+      const row = [
+        itemId, localDateString(), itemText,
+        document.getElementById('category').value,
+        document.getElementById('brand').value.trim(),
+        document.getElementById('source').value.trim(),
+        document.getElementById('acquisitionType').value,
+        document.getElementById('targetId').value.trim(),
+        price, 0, listPriceText === '' ? '' : Number(listPriceText),
+        '', 'Ready to List', '', '', '', notes
+      ];
+      const appendUrl = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(SPREADSHEET_ID) + '/values/' + encodeURIComponent(INVENTORY_RANGE) + ':append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS';
+      const appendResponse = await fetch(appendUrl, {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ majorDimension: 'ROWS', values: [row] })
+      });
+      const appendData = await appendResponse.json();
+      if (!appendResponse.ok) throw new Error(appendData.error && appendData.error.message ? appendData.error.message : 'Sheets API returned HTTP ' + appendResponse.status + '.');
+      show('Saved successfully: ' + itemId + '\n' + title + '\nPurchase cost: $' + price.toFixed(2) + '\nStatus: Ready to List');
+      document.getElementById('title').value = '';
+      document.getElementById('barcode').value = '';
+      document.getElementById('category').value = '';
+      document.getElementById('brand').value = '';
+      document.getElementById('source').value = '';
+      document.getElementById('price').value = '';
+      document.getElementById('condition').value = '';
+      document.getElementById('acquisitionType').value = 'Opportunistic';
+      document.getElementById('targetId').value = '';
+      document.getElementById('listPrice').value = '';
+      document.getElementById('author').value = '';
+      document.getElementById('notes').value = '';
+    } catch (error) {
+      show('Save failed: ' + error.message + '\n\nCheck that Google Sheets API is enabled, this account has access to the spreadsheet, and the OAuth consent screen includes your account as a test user if the app is in Testing mode. Your form details have been kept so you can retry.');
+      if (/token|auth|permission|credential|401|403/i.test(error.message)) {
+        accessToken = null;
+        tokenExpiresAt = 0;
       }
     }
-  </script>
+  }
+</script>
 </body>
 </html>
